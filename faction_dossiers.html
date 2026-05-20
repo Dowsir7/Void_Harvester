@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FACTION DOSSIERS</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #010a03;
+    --panel: #030f05;
+    --green: #00ff41;
+    --green-dim: #00aa2a;
+    --green-dark: #004a10;
+    --muted: #1a5028;
+    --border: #0a2e10;
+    --white: #c8ffd0;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--white); font-family:'Share Tech Mono',monospace; cursor:crosshair; min-height:100vh; }
+  body::after { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 4px); pointer-events:none; z-index:9999; }
+  .page-header { text-align:center; padding:52px 20px 40px; border-bottom:1px solid var(--border); position:relative; }
+  .page-header::after { content:''; position:absolute; bottom:-1px; left:50%; transform:translateX(-50%); width:400px; height:1px; background:linear-gradient(90deg,transparent,var(--green),transparent); }
+  .page-header .eyebrow { font-size:10px; letter-spacing:7px; color:var(--muted); margin-bottom:12px; }
+  .page-header h1 { font-family:'Orbitron',monospace; font-size:clamp(20px,4vw,38px); font-weight:900; letter-spacing:8px; color:var(--green); text-shadow:0 0 20px var(--green),0 0 60px rgba(0,255,65,0.25); }
+  .page-header .sub { margin-top:12px; font-size:10px; color:var(--muted); letter-spacing:3px; }
+  .factions { max-width:1100px; margin:0 auto; padding:48px 24px 80px; display:flex; flex-direction:column; gap:48px; }
+  .faction-card { display:grid; grid-template-columns:200px 1fr; gap:32px; border:1px solid var(--border); background:var(--panel); padding:32px; position:relative; transition:border-color 0.3s,box-shadow 0.3s; }
+  .faction-card:hover { border-color:var(--green-dark); box-shadow:0 0 30px rgba(0,255,65,0.07); }
+  .faction-card.flip { grid-template-columns:1fr 200px; }
+  .faction-card.flip .logo-col { order:2; }
+  .faction-card.flip .info-col { order:1; }
+  .logo-col { display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .logo-col canvas { display:block; }
+  .faction-id { font-size:9px; letter-spacing:3px; color:var(--muted); text-align:center; }
+  .info-col { display:flex; flex-direction:column; gap:18px; }
+  .faction-header { border-bottom:1px solid var(--border); padding-bottom:14px; }
+  .faction-tag { font-size:9px; letter-spacing:4px; color:var(--muted); margin-bottom:6px; }
+  .faction-name { font-family:'Orbitron',monospace; font-weight:900; font-size:clamp(16px,2.5vw,24px); letter-spacing:4px; line-height:1.2; color:var(--green); }
+  .faction-motto { margin-top:6px; font-size:10px; color:var(--muted); letter-spacing:2px; font-style:italic; }
+  .dossier { font-size:11px; line-height:1.8; color:rgba(200,255,208,0.75); letter-spacing:0.5px; }
+  .traits { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .trait { font-size:9px; letter-spacing:1px; padding:6px 10px; border:1px solid var(--border); line-height:1.5; }
+  .trait .tl { color:var(--muted); display:block; margin-bottom:2px; font-size:8px; letter-spacing:2px; }
+  .trait .tv { color:var(--green); }
+  .trait.neg .tv { color:#ff4422; }
+  .trait.neu .tv { color:#ffaa00; }
+  .relations { display:flex; flex-wrap:wrap; gap:8px; font-size:9px; letter-spacing:1px; }
+  .rel { padding:3px 10px; border:1px solid; }
+  .rel.ally { border-color:#00ff88; color:#00ff88; }
+  .rel.rival { border-color:#ff4422; color:#ff4422; }
+  .rel.neu { border-color:#ffaa00; color:#ffaa00; }
+  .relations-label { font-size:9px; letter-spacing:3px; color:var(--muted); margin-bottom:4px; }
+  .stats { display:flex; flex-direction:column; gap:6px; }
+  .stat-row { display:flex; align-items:center; gap:10px; font-size:9px; letter-spacing:1px; color:var(--muted); }
+  .stat-row .sl { width:90px; flex-shrink:0; }
+  .stat-bar { flex:1; height:3px; background:#0a1a0e; }
+  .stat-fill { height:100%; background:var(--green); }
+  .stat-val { width:28px; text-align:right; color:var(--green); }
+  .faction-card::before { content:''; position:absolute; top:-1px; left:-1px; width:12px; height:12px; border-top:2px solid var(--green-dim); border-left:2px solid var(--green-dim); }
+  .faction-card::after { content:''; position:absolute; bottom:-1px; right:-1px; width:12px; height:12px; border-bottom:2px solid var(--green-dim); border-right:2px solid var(--green-dim); }
+  @media(max-width:600px) {
+    .faction-card,.faction-card.flip { grid-template-columns:1fr; }
+    .faction-card.flip .logo-col { order:1; }
+    .faction-card.flip .info-col { order:2; }
+    .traits { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page-header">
+  <div class="eyebrow">GALACTIC COMMAND // INTELLIGENCE BUREAU // CLEARANCE LEVEL 7</div>
+  <h1>FACTION DOSSIERS</h1>
+  <div class="sub">SELECT YOUR ALLEGIANCE — OR TRUST NO ONE</div>
+</div>
+<div class="factions" id="factions"></div>
+<script>
+const SIZE = 160;
+const G = '#00ff41';
+const GD = 'rgba(0,255,65,0.35)';
+
+const FACTIONS = [
+  {
+    id:'F-001',
+    name:"THE MINING\nGUILD",
+    tag:'INDUSTRIAL FACTION',
+    motto:'"From stone, all things."',
+    dossier:`The oldest organized faction in known space. The Mining Guild predates the current galactic trade era by several centuries, tracing its roots to the first asteroid belt operations in the inner system. They are slow to anger, longer to forgive, and their collective memory is legendary — they remember every debt, every slight, every broken contract. Guild planets produce more raw resources per cycle than any other faction and they know it. They don't need to be fast. They have what everyone else needs.`,
+    stats:{'RESOURCE YIELD':95,'TRADE REACH':45,'MILITARY':55,'TECH LEVEL':40,'SECURITY':80},
+    traits:[
+      {l:'BONUS',v:'+40% resource output on guild planets'},
+      {l:'BONUS',v:'Colonies deplete slower'},
+      {l:'BONUS',v:'Exclusive rights cost less to renew'},
+      {l:'PENALTY',v:'Slow travel — heavy cargo culture',neg:true},
+    ],
+    relations:[{name:"TRADER'S ALLIANCE",type:'ally'},{name:'TECHNOCRATS',type:'neu'},{name:'THE SYNDICATE',type:'rival'}],
+    // Logo: drill-bit head viewed from above — concentric offset rings with radial drill flutes
+    draw(ctx,cx,cy,s) {
+      ctx.strokeStyle=G; ctx.lineWidth=1.8; ctx.lineJoin='round'; ctx.lineCap='round';
+      // Outer octagon (drill collar)
+      const oct=(r)=>{ ctx.beginPath(); for(let i=0;i<8;i++){const a=i*Math.PI/4-Math.PI/8; i===0?ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r):ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);} ctx.closePath(); ctx.stroke(); };
+      oct(s*0.82); 
+      ctx.lineWidth=0.8; ctx.strokeStyle=GD; oct(s*0.6);
+      // Drill flutes — 4 curved channels
+      ctx.strokeStyle=G; ctx.lineWidth=1.2;
+      for(let i=0;i<4;i++){
+        const a=i*Math.PI/2;
+        ctx.beginPath();
+        ctx.moveTo(cx+Math.cos(a)*s*0.6, cy+Math.sin(a)*s*0.6);
+        ctx.bezierCurveTo(
+          cx+Math.cos(a+0.4)*s*0.35, cy+Math.sin(a+0.4)*s*0.35,
+          cx+Math.cos(a+0.8)*s*0.2,  cy+Math.sin(a+0.8)*s*0.2,
+          cx+Math.cos(a+Math.PI/2)*s*0.6, cy+Math.sin(a+Math.PI/2)*s*0.6
+        );
+        ctx.stroke();
+      }
+      // Center bore hole
+      ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(cx,cy,s*0.18,0,Math.PI*2); ctx.stroke();
+      ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(cx,cy,s*0.07,0,Math.PI*2); ctx.stroke();
+      // PCB via dots at octagon corners
+      ctx.lineWidth=1;
+      for(let i=0;i<8;i++){const a=i*Math.PI/4-Math.PI/8; const vx=cx+Math.cos(a)*s*0.82,vy=cy+Math.sin(a)*s*0.82; ctx.beginPath();ctx.arc(vx,vy,3,0,Math.PI*2);ctx.stroke();}
+    }
+  },
+
+  {
+    id:'F-002',
+    name:"THE TRADER'S\nALLIANCE",
+    tag:'MERCANTILE FACTION',
+    motto:'"Every port a home. Every deal a bond."',
+    dossier:`Less a faction, more a philosophy. The Trader's Alliance has no homeworld, no fleet admiral, and no standing army worth mentioning. What it has is presence — Alliance outposts exist in more systems than any other faction, and their network of trade agreements spans every known sector. They survive on goodwill and mutual profit, which makes them almost universally liked and almost universally underestimated. They are the neutral ground where rivals negotiate and the soft infrastructure on which the entire galactic economy quietly depends.`,
+    stats:{'RESOURCE YIELD':50,'TRADE REACH':98,'MILITARY':20,'TECH LEVEL':60,'SECURITY':35},
+    traits:[
+      {l:'BONUS',v:'Lowest prices at all Alliance stations'},
+      {l:'BONUS',v:"Access to every faction's trade routes"},
+      {l:'BONUS',v:'Most starting locations available'},
+      {l:'PENALTY',v:'Weakest security — shuttles easily taken',neg:true},
+      {l:'PENALTY',v:'No exclusive territory protection',neg:true},
+    ],
+    relations:[{name:'MINING GUILD',type:'ally'},{name:'TECHNOCRATS',type:'ally'},{name:'ALL FACTIONS',type:'neu'}],
+    // Logo: trade network hub — central station node, 5 asymmetric route arms at non-equal angles, waypoint stops along each arm
+    draw(ctx,cx,cy,s) {
+      ctx.strokeStyle=G; ctx.lineWidth=1.5; ctx.lineJoin='round'; ctx.lineCap='round';
+      // Five route arms at deliberately uneven angles — not symmetric, not geometric
+      const arms=[
+        {a:-1.2,  len:s*0.75, stops:2},
+        {a:-0.1,  len:s*0.68, stops:1},
+        {a:0.95,  len:s*0.72, stops:2},
+        {a:2.2,   len:s*0.65, stops:1},
+        {a:3.4,   len:s*0.7,  stops:2},
+      ];
+      arms.forEach(arm=>{
+        const ex=cx+Math.cos(arm.a)*arm.len;
+        const ey=cy+Math.sin(arm.a)*arm.len;
+        // Route line
+        ctx.lineWidth=1.3; ctx.strokeStyle=G;
+        ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ex,ey);ctx.stroke();
+        // Waypoint stops along route
+        for(let i=1;i<=arm.stops;i++){
+          const t=i/(arm.stops+1);
+          const wx=cx+Math.cos(arm.a)*arm.len*t;
+          const wy=cy+Math.sin(arm.a)*arm.len*t;
+          ctx.lineWidth=1;
+          ctx.beginPath();ctx.rect(wx-s*0.06,wy-s*0.06,s*0.12,s*0.12);ctx.stroke();
+        }
+        // Terminal station at end — small rect
+        ctx.lineWidth=1.2;
+        ctx.beginPath();ctx.rect(ex-s*0.1,ey-s*0.08,s*0.2,s*0.16);ctx.stroke();
+      });
+      // Cross-route connector — horizontal bar linking two mid-arms (feels like an interchange)
+      const a1=arms[1], a2=arms[2];
+      const mx1=cx+Math.cos(a1.a)*a1.len*0.55, my1=cy+Math.sin(a1.a)*a1.len*0.55;
+      const mx2=cx+Math.cos(a2.a)*a2.len*0.55, my2=cy+Math.sin(a2.a)*a2.len*0.55;
+      ctx.lineWidth=0.8; ctx.strokeStyle=GD;
+      ctx.beginPath();ctx.moveTo(mx1,my1);ctx.lineTo(mx2,my2);ctx.stroke();
+      // Central hub station — double rectangle, not circular
+      ctx.strokeStyle=G; ctx.lineWidth=1.8;
+      ctx.beginPath();ctx.rect(cx-s*0.18,cy-s*0.18,s*0.36,s*0.36);ctx.stroke();
+      ctx.lineWidth=0.8;
+      ctx.beginPath();ctx.rect(cx-s*0.1,cy-s*0.1,s*0.2,s*0.2);ctx.stroke();
+    }
+  },
+
+  {
+    id:'F-003',
+    name:"THE\nTECHNOCRATS",
+    tag:'RESEARCH FACTION',
+    motto:'"Advancement is the only constant."',
+    dossier:`Nobody is entirely sure where the Technocrats came from. The prevailing theory is a splinter group of Alliance scientists who decided that trade was secondary to discovery. What is certain is that their ships are faster, their sensors longer-range, and their weapons — when they bother to mount them — more precise than anything else in the sector. Technocrat stations feel like universities crossed with shipyards. Entry requires either a research credential or enough credits to make credentials irrelevant. They are not hostile to outsiders, merely indifferent, which can feel worse.`,
+    stats:{'RESOURCE YIELD':35,'TRADE REACH':55,'MILITARY':70,'TECH LEVEL':98,'SECURITY':65},
+    traits:[
+      {l:'BONUS',v:'Best ship upgrades available'},
+      {l:'BONUS',v:'Research accelerates faster'},
+      {l:'BONUS',v:'Sensor range extended — see danger early'},
+      {l:'PENALTY',v:'Premium prices — knowledge costs',neg:true},
+      {l:'PENALTY',v:'Limited resource production',neg:true},
+    ],
+    relations:[{name:"TRADER'S ALLIANCE",type:'ally'},{name:'MINING GUILD',type:'neu'},{name:'IRON COMPACT',type:'rival'}],
+    // Logo: PCB chip / IC package — rectangular body, pin rows on sides, internal die diagram
+    draw(ctx,cx,cy,s) {
+      ctx.strokeStyle=G; ctx.lineWidth=1.8; ctx.lineJoin='round'; ctx.lineCap='round';
+      // Chip body
+      const bw=s*1.1, bh=s*1.1;
+      ctx.beginPath(); ctx.rect(cx-bw/2,cy-bh/2,bw,bh); ctx.stroke();
+      // Pin notch top-left
+      ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(cx-bw/2,cy-bh/2,s*0.1,0,Math.PI/2); ctx.stroke();
+      // Pin rows — 4 pins each side, top and bottom
+      ctx.lineWidth=1.3; ctx.strokeStyle=G;
+      const pinSpacing=bw*0.22;
+      for(let i=-1;i<=2;i++){
+        const px=cx+i*pinSpacing-pinSpacing/2;
+        // Top pins
+        ctx.beginPath();ctx.moveTo(px,cy-bh/2);ctx.lineTo(px,cy-bh/2-s*0.22);ctx.stroke();
+        ctx.beginPath();ctx.rect(px-s*0.05,cy-bh/2-s*0.22,s*0.1,s*0.1);ctx.stroke();
+        // Bottom pins
+        ctx.beginPath();ctx.moveTo(px,cy+bh/2);ctx.lineTo(px,cy+bh/2+s*0.22);ctx.stroke();
+        ctx.beginPath();ctx.rect(px-s*0.05,cy+bh/2+s*0.12,s*0.1,s*0.1);ctx.stroke();
+      }
+      // Internal die — smaller rect with trace lines
+      ctx.strokeStyle=GD; ctx.lineWidth=0.8;
+      ctx.beginPath(); ctx.rect(cx-bw*0.3,cy-bh*0.3,bw*0.6,bh*0.6); ctx.stroke();
+      // Internal traces
+      ctx.beginPath();ctx.moveTo(cx-bw*0.3,cy);ctx.lineTo(cx-s*0.08,cy);ctx.lineTo(cx-s*0.08,cy-bh*0.15);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+bw*0.3,cy);ctx.lineTo(cx+s*0.08,cy);ctx.lineTo(cx+s*0.08,cy+bh*0.15);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx,cy-bh*0.3);ctx.lineTo(cx,cy-s*0.08);ctx.lineTo(cx+bw*0.15,cy-s*0.08);ctx.stroke();
+      // Core processor dot
+      ctx.strokeStyle=G; ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(cx,cy,s*0.1,0,Math.PI*2);ctx.stroke();
+    }
+  },
+
+  {
+    id:'F-004',
+    name:"THE IRON\nCOMPACT",
+    tag:'MILITARY FACTION',
+    motto:'"Order through strength. Strength through unity."',
+    dossier:`The Iron Compact does not advertise. They don't need to. Their patrol ships are visible at the edge of every system they claim and the message is clear without words. Originally formed as a security coalition among outer-ring mining operations that were tired of losing shuttles, they have since evolved into the most organized military force in the sector. They are not conquerers — they are protectors, for a price. Compact membership is expensive and their code of conduct is strict, but no faction loses fewer shuttles. They respect strength and have a quiet contempt for anyone who can't defend what they own.`,
+    stats:{'RESOURCE YIELD':55,'TRADE REACH':40,'MILITARY':97,'TECH LEVEL':65,'SECURITY':95},
+    traits:[
+      {l:'BONUS',v:'Highest shuttle security in the galaxy'},
+      {l:'BONUS',v:'Safe zone radius significantly larger'},
+      {l:'BONUS',v:'Can operate freely in dangerous zones'},
+      {l:'PENALTY',v:'High membership dues — expensive upkeep',neg:true},
+      {l:'PENALTY',v:'Rigid conduct rules — limited freelancing',neg:true},
+    ],
+    relations:[{name:'MINING GUILD',type:'neu'},{name:'TECHNOCRATS',type:'rival'},{name:'THE SYNDICATE',type:'rival'}],
+    // Logo: armored bulkhead / blast door — layered rectangular plates with bolts and locking bar
+    draw(ctx,cx,cy,s) {
+      ctx.strokeStyle=G; ctx.lineWidth=1.8; ctx.lineJoin='round'; ctx.lineCap='round';
+      // Outer plate
+      ctx.beginPath(); ctx.rect(cx-s*0.78,cy-s*0.82,s*1.56,s*1.64); ctx.stroke();
+      // Middle plate inset
+      ctx.lineWidth=1;
+      ctx.beginPath(); ctx.rect(cx-s*0.58,cy-s*0.62,s*1.16,s*1.24); ctx.stroke();
+      // Horizontal locking bar across middle
+      ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(cx-s*0.58,cy);ctx.lineTo(cx+s*0.58,cy);ctx.stroke();
+      // Locking bar end brackets
+      ctx.lineWidth=1.5;
+      [[-1],[1]].forEach(([side])=>{
+        const bx=cx+side*s*0.58;
+        ctx.beginPath();ctx.moveTo(bx,cy-s*0.18);ctx.lineTo(bx+side*s*0.15,cy-s*0.18);ctx.lineTo(bx+side*s*0.15,cy+s*0.18);ctx.lineTo(bx,cy+s*0.18);ctx.stroke();
+      });
+      // Bolt heads — 6 bolts
+      ctx.lineWidth=1;
+      const bolts=[[cx-s*0.58,cy-s*0.62],[cx+s*0.58,cy-s*0.62],[cx-s*0.58,cy+s*0.62],[cx+s*0.58,cy+s*0.62],[cx,cy-s*0.62],[cx,cy+s*0.62]];
+      bolts.forEach(([bx,by])=>{ ctx.beginPath();ctx.arc(bx,by,s*0.06,0,Math.PI*2);ctx.stroke(); ctx.beginPath();ctx.arc(bx,cy==by?cy:by,s*0.02,0,Math.PI*2);ctx.stroke(); });
+      // Central ID panel
+      ctx.lineWidth=1;
+      ctx.beginPath();ctx.rect(cx-s*0.2,cy-s*0.38,s*0.4,s*0.3);ctx.stroke();
+      // Horizontal lines in ID panel
+      ctx.strokeStyle=GD; ctx.lineWidth=0.7;
+      for(let i=1;i<3;i++){ctx.beginPath();ctx.moveTo(cx-s*0.2,cy-s*0.38+i*s*0.1);ctx.lineTo(cx+s*0.2,cy-s*0.38+i*s*0.1);ctx.stroke();}
+    }
+  },
+
+  {
+    id:'F-005',
+    name:"THE\nSYNDICATE",
+    tag:'SHADOW FACTION',
+    motto:'"Information is the only real currency."',
+    dossier:`No one officially acknowledges the Syndicate exists. The Trader's Alliance calls them a rumour. The Iron Compact calls them a problem. The Mining Guild quietly pays them not to interfere with certain shipments. The Syndicate controls no planets, claims no territory, and has no listed stations — and yet somehow they have agents in every port, advance knowledge of every major trade deal, and a hand in the ransom of more captured shuttles than any other faction. Joining them means access to information nobody else has. It also means you are now known to them, which is a comfort only as long as you remain useful.`,
+    stats:{'RESOURCE YIELD':30,'TRADE REACH':80,'MILITARY':60,'TECH LEVEL':70,'SECURITY':50},
+    traits:[
+      {l:'BONUS',v:'Intel on NPC movements — see routes'},
+      {l:'BONUS',v:'Ransom costs reduced — contacts help'},
+      {l:'BONUS',v:'Can operate covertly in any territory'},
+      {l:'PENALTY',v:'No safe zone protection in open space',neg:true},
+      {l:'PENALTY',v:'Rival factions charge premium prices',neg:true},
+    ],
+    relations:[{name:'FREELANCERS',type:'neu'},{name:'IRON COMPACT',type:'rival'},{name:'MINING GUILD',type:'rival'}],
+    // Logo: signal intercept dish — off-center parabolic receiver with signal arc lines and a data tap node
+    draw(ctx,cx,cy,s) {
+      ctx.strokeStyle=G; ctx.lineWidth=1.5; ctx.lineJoin='round'; ctx.lineCap='round';
+      // Parabolic dish outline — open arc facing right
+      ctx.beginPath();
+      ctx.moveTo(cx-s*0.1, cy-s*0.75);
+      ctx.bezierCurveTo(cx+s*0.9, cy-s*0.4, cx+s*0.9, cy+s*0.4, cx-s*0.1, cy+s*0.75);
+      ctx.stroke();
+      // Dish back brace
+      ctx.beginPath();ctx.moveTo(cx-s*0.1,cy-s*0.75);ctx.lineTo(cx-s*0.1,cy+s*0.75);ctx.stroke();
+      // Support arm to focal point
+      ctx.lineWidth=1.2;
+      ctx.beginPath();ctx.moveTo(cx+s*0.15,cy);ctx.lineTo(cx+s*0.65,cy);ctx.stroke();
+      // Focal receiver node
+      ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.rect(cx+s*0.58,cy-s*0.12,s*0.24,s*0.24);ctx.stroke();
+      ctx.beginPath();ctx.arc(cx+s*0.7,cy,s*0.05,0,Math.PI*2);ctx.stroke();
+      // Incoming signal arcs — left side
+      ctx.lineWidth=0.8; ctx.strokeStyle=GD;
+      for(let i=1;i<=3;i++){
+        ctx.beginPath();
+        ctx.arc(cx+s*0.7,cy, s*i*0.28, Math.PI*0.65, Math.PI*1.35);
+        ctx.stroke();
+      }
+      // Data tap line going down-left
+      ctx.strokeStyle=G; ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(cx+s*0.7,cy+s*0.12);
+      ctx.lineTo(cx+s*0.7,cy+s*0.35);
+      ctx.lineTo(cx-s*0.3,cy+s*0.35);
+      ctx.stroke();
+      // Tap node
+      ctx.beginPath();ctx.arc(cx-s*0.3,cy+s*0.35,s*0.07,0,Math.PI*2);ctx.stroke();
+      // Mount struts on dish back
+      ctx.lineWidth=0.8;
+      [cy-s*0.3,cy+s*0.3].forEach(sy=>{
+        ctx.beginPath();ctx.moveTo(cx-s*0.1,sy);ctx.lineTo(cx-s*0.45,sy);ctx.lineTo(cx-s*0.45,cy);ctx.stroke();
+      });
+    }
+  },
+
+  {
+    id:'F-006',
+    name:"THE VERDANT\nCONCORD",
+    tag:'ECOLOGICAL FACTION',
+    motto:'"Tend the galaxy. It will tend you."',
+    dossier:`The Verdant Concord emerged from the colonists who discovered that terraformed worlds could be extraordinarily productive — if you didn't strip-mine them. They are not environmentalists in any soft sense; they are long-term economists who have calculated that sustainable extraction outperforms industrial depletion over any timeline greater than fifty cycles. Their colonies are the most self-sufficient in the galaxy, their food and bio-resource production unmatched. Other factions find them idealistic. The Concord finds other factions short-sighted. Both are correct.`,
+    stats:{'RESOURCE YIELD':80,'TRADE REACH':60,'MILITARY':35,'TECH LEVEL':55,'SECURITY':60},
+    traits:[
+      {l:'BONUS',v:'Colonies self-sustain — low maintenance'},
+      {l:'BONUS',v:'Bio-resources generate while offline'},
+      {l:'BONUS',v:'Planet allegiance shifts toward you faster'},
+      {l:'PENALTY',v:'Cannot operate in strip-mine zones',neg:true},
+      {l:'PENALTY',v:'Slower initial colony setup',neg:true},
+    ],
+    relations:[{name:"TRADER'S ALLIANCE",type:'ally'},{name:'MINING GUILD',type:'neu'},{name:'IRON COMPACT',type:'neu'}],
+    // Logo: terraforming rig schematic — planet circle with atmospheric processor towers and pipeline grid
+    draw(ctx,cx,cy,s) {
+      ctx.strokeStyle=G; ctx.lineWidth=1.5; ctx.lineJoin='round'; ctx.lineCap='round';
+      // Planet body
+      ctx.beginPath();ctx.arc(cx,cy+s*0.15,s*0.52,0,Math.PI*2);ctx.stroke();
+      // Atmosphere band arc above planet
+      ctx.lineWidth=0.8; ctx.strokeStyle=GD;
+      ctx.beginPath();ctx.arc(cx,cy+s*0.15,s*0.64,Math.PI*1.1,Math.PI*1.9);ctx.stroke();
+      ctx.beginPath();ctx.arc(cx,cy+s*0.15,s*0.72,Math.PI*1.15,Math.PI*1.85);ctx.stroke();
+      // Three processor towers sitting on top of planet
+      ctx.strokeStyle=G; ctx.lineWidth=1.2;
+      [cx-s*0.3,cx,cx+s*0.3].forEach((tx,i)=>{
+        const baseY=cy+s*0.15-s*0.52;
+        // Tower shaft
+        ctx.beginPath();ctx.moveTo(tx,baseY);ctx.lineTo(tx,baseY-s*(0.35+i%2*0.1));ctx.stroke();
+        // Tower top cap
+        ctx.beginPath();ctx.rect(tx-s*0.07,baseY-s*(0.35+i%2*0.1)-s*0.08,s*0.14,s*0.08);ctx.stroke();
+        // Emission rings at top
+        ctx.lineWidth=0.7; ctx.strokeStyle=GD;
+        ctx.beginPath();ctx.arc(tx,baseY-s*(0.35+i%2*0.1)-s*0.08,s*0.15,Math.PI,Math.PI*2);ctx.stroke();
+        ctx.lineWidth=1.2; ctx.strokeStyle=G;
+      });
+      // Pipeline connecting towers at base
+      ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(cx-s*0.3,cy+s*0.15-s*0.52);ctx.lineTo(cx+s*0.3,cy+s*0.15-s*0.52);ctx.stroke();
+      // Surface grid lines on planet
+      ctx.lineWidth=0.6; ctx.strokeStyle=GD;
+      for(let i=-1;i<=1;i++){
+        const y2=cy+s*0.15+i*s*0.2;
+        const dx=Math.sqrt(Math.max(0,(s*0.52)**2-(y2-(cy+s*0.15))**2));
+        ctx.beginPath();ctx.moveTo(cx-dx,y2);ctx.lineTo(cx+dx,y2);ctx.stroke();
+      }
+    }
+  },
+
+  {
+    id:'F-007',
+    name:"THE FREE\nFLEET",
+    tag:'FREELANCER COLLECTIVE',
+    motto:'"No masters. No ceilings."',
+    dossier:`Technically the Free Fleet is not a faction. They will tell you this themselves, at length, if given the opportunity. What they are is an informal network of freelance operators who share navigation data, warn each other of Syndicate activity, and occasionally pool resources for jobs too large for a single ship. Membership is free. There are no dues, no ranks, and no orders. The Free Fleet's influence is entirely soft — reputation, mutual aid, information sharing — but in a galaxy where information is power, their reach is longer than it looks. They are the natural home of the ambitious loner who refuses to be anyone's junior partner.`,
+    stats:{'RESOURCE YIELD':55,'TRADE REACH':70,'MILITARY':45,'TECH LEVEL':55,'SECURITY':45},
+    traits:[
+      {l:'BONUS',v:'No dues — full profit retention'},
+      {l:'BONUS',v:"Can buy rights on any faction planet"},
+      {l:'BONUS',v:'No conduct restrictions anywhere'},
+      {l:'NEUTRAL',v:'No faction pricing bonuses',neu:true},
+      {l:'NEUTRAL',v:'Must earn every advantage yourself',neu:true},
+    ],
+    relations:[{name:'ALL FACTIONS',type:'neu'},{name:'THE SYNDICATE',type:'neu'}],
+    // Logo: thruster burn schematic — engine bell cutaway with fuel manifold and exhaust nozzle geometry
+    draw(ctx,cx,cy,s) {
+      ctx.strokeStyle=G; ctx.lineWidth=1.8; ctx.lineJoin='round'; ctx.lineCap='round';
+      // Engine bell — tapered nozzle shape
+      ctx.beginPath();
+      ctx.moveTo(cx-s*0.28,cy-s*0.75);
+      ctx.lineTo(cx+s*0.28,cy-s*0.75);
+      ctx.lineTo(cx+s*0.62,cy+s*0.45);
+      ctx.lineTo(cx-s*0.62,cy+s*0.45);
+      ctx.closePath();
+      ctx.stroke();
+      // Throat constriction line
+      ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(cx-s*0.18,cy-s*0.15);ctx.lineTo(cx+s*0.18,cy-s*0.15);ctx.stroke();
+      // Fuel injector manifold — horizontal bar at top with feed lines
+      ctx.lineWidth=1.3;
+      ctx.beginPath();ctx.moveTo(cx-s*0.42,cy-s*0.75);ctx.lineTo(cx+s*0.42,cy-s*0.75);ctx.stroke();
+      // Feed lines dropping down
+      ctx.lineWidth=0.8; ctx.strokeStyle=GD;
+      for(let i=-1;i<=1;i++){
+        ctx.beginPath();ctx.moveTo(cx+i*s*0.2,cy-s*0.75);ctx.lineTo(cx+i*s*0.2,cy-s*0.45);ctx.stroke();
+        ctx.beginPath();ctx.arc(cx+i*s*0.2,cy-s*0.45,s*0.05,0,Math.PI*2);ctx.stroke();
+      }
+      // Exhaust expansion rings — below bell
+      ctx.strokeStyle=GD; ctx.lineWidth=0.7;
+      for(let i=1;i<=3;i++){
+        const ey=cy+s*0.45+i*s*0.15;
+        const ew=s*0.62+i*s*0.12;
+        ctx.beginPath();ctx.moveTo(cx-ew,ey);ctx.lineTo(cx+ew,ey);ctx.stroke();
+      }
+      // Mounting bolts on bell rim
+      ctx.strokeStyle=G; ctx.lineWidth=1;
+      [-s*0.5,-s*0.25,0,s*0.25,s*0.5].forEach(ox=>{
+        ctx.beginPath();ctx.arc(cx+ox,cy-s*0.75,s*0.04,0,Math.PI*2);ctx.stroke();
+      });
+    }
+  },
+
+  {
+    id:'F-008',
+    name:"THE ALIEN\nCONCLAVE",
+    tag:'XENOFACTION // UNKNOWN ORIGIN',
+    motto:'"[UNTRANSLATABLE]"',
+    dossier:`First contact was not dramatic. A Conclave vessel simply appeared at a Trader's Alliance waystation one cycle and began conducting business as if they had always been there. Their biology is unknown. Their homeworld is unknown. Their motivations are, at best, inferred. What is known: they have resources no other faction can produce, their technology is unlike anything the Technocrats can reverse-engineer, and they have thus far shown no aggression toward any faction that has not first shown aggression toward them. The Conclave does not recruit. You do not join them. Occasionally, they invite you. Nobody knows the criteria.`,
+    stats:{'RESOURCE YIELD':70,'TRADE REACH':50,'MILITARY':85,'TECH LEVEL':100,'SECURITY':75},
+    traits:[
+      {l:'BONUS',v:'Unique alien resources unavailable elsewhere'},
+      {l:'BONUS',v:'Exotic tech upgrades — nothing comparable'},
+      {l:'BONUS',v:'Conclave zones are impassable to rivals'},
+      {l:'PENALTY',v:'Cannot be chosen at game start',neg:true},
+      {l:'PENALTY',v:'Must be unlocked through play',neg:true},
+    ],
+    relations:[{name:'ALL FACTIONS',type:'neu'}],
+    // Logo: non-euclidean wave interference pattern — overlapping sine waves that shouldn't geometrically work, with asymmetric node clusters
+    draw(ctx,cx,cy,s) {
+      ctx.strokeStyle=G; ctx.lineWidth=1.4; ctx.lineJoin='round'; ctx.lineCap='round';
+      // Outer boundary — irregular 9-sided polygon with unequal sides
+      const angles=[0,0.62,1.3,2.1,2.65,3.4,4.0,4.9,5.6];
+      const radii= [s*0.82,s*0.68,s*0.78,s*0.6,s*0.8,s*0.65,s*0.75,s*0.58,s*0.8];
+      ctx.beginPath();
+      angles.forEach((a,i)=>{ i===0?ctx.moveTo(cx+Math.cos(a)*radii[i],cy+Math.sin(a)*radii[i]):ctx.lineTo(cx+Math.cos(a)*radii[i],cy+Math.sin(a)*radii[i]); });
+      ctx.closePath(); ctx.stroke();
+      // Inner offset polygon — rotated, different radii
+      ctx.lineWidth=0.8; ctx.strokeStyle=GD;
+      const a2=[0.4,1.1,1.9,2.5,3.2,3.8,4.6,5.2,5.9];
+      const r2=[s*0.42,s*0.35,s*0.45,s*0.38,s*0.48,s*0.32,s*0.44,s*0.36,s*0.42];
+      ctx.beginPath();
+      a2.forEach((a,i)=>{ i===0?ctx.moveTo(cx+Math.cos(a)*r2[i],cy+Math.sin(a)*r2[i]):ctx.lineTo(cx+Math.cos(a)*r2[i],cy+Math.sin(a)*r2[i]); });
+      ctx.closePath(); ctx.stroke();
+      // Connecting spokes — outer to inner at non-matching angles
+      ctx.lineWidth=0.7;
+      [[0,3],[1,5],[2,7],[3,0],[4,6],[5,2],[6,8]].forEach(([oi,ii])=>{
+        ctx.beginPath();
+        ctx.moveTo(cx+Math.cos(angles[oi])*radii[oi],cy+Math.sin(angles[oi])*radii[oi]);
+        ctx.lineTo(cx+Math.cos(a2[ii])*r2[ii],cy+Math.sin(a2[ii])*r2[ii]);
+        ctx.stroke();
+      });
+      // Center — asymmetric cluster of 3 nodes, not evenly spaced
+      ctx.strokeStyle=G; ctx.lineWidth=1.2;
+      const nodes=[[cx,cy],[cx+s*0.12,cy-s*0.08],[cx-s*0.09,cy+s*0.14]];
+      nodes.forEach(([nx,ny])=>{ ctx.beginPath();ctx.arc(nx,ny,s*0.07,0,Math.PI*2);ctx.stroke(); });
+      // Connect nodes
+      ctx.lineWidth=0.9;
+      ctx.beginPath();ctx.moveTo(nodes[0][0],nodes[0][1]);ctx.lineTo(nodes[1][0],nodes[1][1]);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(nodes[1][0],nodes[1][1]);ctx.lineTo(nodes[2][0],nodes[2][1]);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(nodes[2][0],nodes[2][1]);ctx.lineTo(nodes[0][0],nodes[0][1]);ctx.stroke();
+    }
+  },
+];
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+const container=document.getElementById('factions');
+
+FACTIONS.forEach((faction,idx)=>{
+  const card=document.createElement('div');
+  card.className='faction-card'+(idx%2===1?' flip':'');
+
+  const logoCol=document.createElement('div');
+  logoCol.className='logo-col';
+  const canvas=document.createElement('canvas');
+  canvas.width=SIZE; canvas.height=SIZE;
+  logoCol.appendChild(canvas);
+  const fid=document.createElement('div');
+  fid.className='faction-id';
+  fid.textContent=`DOSSIER ${faction.id}`;
+  logoCol.appendChild(fid);
+
+  const infoCol=document.createElement('div');
+  infoCol.className='info-col';
+
+  const header=document.createElement('div');
+  header.className='faction-header';
+  header.innerHTML=`<div class="faction-tag">${faction.tag}</div><div class="faction-name">${faction.name.replace('\n','<br>')}</div><div class="faction-motto">${faction.motto}</div>`;
+  infoCol.appendChild(header);
+
+  const dossier=document.createElement('div');
+  dossier.className='dossier';
+  dossier.textContent=faction.dossier;
+  infoCol.appendChild(dossier);
+
+  const statsDiv=document.createElement('div');
+  statsDiv.className='stats';
+  Object.entries(faction.stats).forEach(([label,val])=>{
+    statsDiv.innerHTML+=`<div class="stat-row"><span class="sl">${label}</span><div class="stat-bar"><div class="stat-fill" style="width:${val}%"></div></div><span class="stat-val">${val}</span></div>`;
+  });
+  infoCol.appendChild(statsDiv);
+
+  const traitsDiv=document.createElement('div');
+  traitsDiv.className='traits';
+  faction.traits.forEach(t=>{
+    const cls=t.neg?'trait neg':t.neu?'trait neu':'trait';
+    traitsDiv.innerHTML+=`<div class="${cls}"><span class="tl">${t.l}</span><span class="tv">${t.v}</span></div>`;
+  });
+  infoCol.appendChild(traitsDiv);
+
+  const relWrap=document.createElement('div');
+  relWrap.innerHTML=`<div class="relations-label">KNOWN RELATIONS</div>`;
+  const relDiv=document.createElement('div');
+  relDiv.className='relations';
+  faction.relations.forEach(r=>{ relDiv.innerHTML+=`<span class="rel ${r.type}">${r.name}</span>`; });
+  relWrap.appendChild(relDiv);
+  infoCol.appendChild(relWrap);
+
+  card.appendChild(logoCol);
+  card.appendChild(infoCol);
+  container.appendChild(card);
+
+  const ctx=canvas.getContext('2d');
+  faction.draw(ctx,SIZE/2,SIZE/2,SIZE*0.38);
+});
+</script>
+</body>
+</html>
