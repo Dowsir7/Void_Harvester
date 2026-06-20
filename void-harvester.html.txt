@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>VOID HARVESTER</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+:root {
+  --pcb:#00ff88;--pcb-dim:#00aa55;--pcb-dark:#003322;--pcb-faint:#001a11;
+  --bg:#000d07;--accent:#00ffcc;--warn:#ffaa00;--danger:#ff4444;
+  --panel-bg:rgba(0,12,8,0.97);--border:1px solid var(--pcb-dim);
+  --ph:30vh;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--pcb);font-family:'Share Tech Mono',monospace;
+  overflow:hidden;height:100vh;width:100vw;display:flex;flex-direction:column;user-select:none;}
+#gameWrap{height:calc(100vh - var(--ph));width:100%;position:relative;flex-shrink:0;cursor:crosshair;overflow:hidden;}
+#mainCanvas{width:100%;height:100%;display:block;}
+#hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;
+  align-items:flex-start;padding:8px 12px;pointer-events:none;z-index:10;}
+.hud-block{display:flex;flex-direction:column;gap:2px;}
+.hud-label{font-family:'Orbitron',monospace;font-size:7px;color:var(--pcb-dim);letter-spacing:2px;}
+.hud-val{font-size:12px;color:var(--pcb);text-shadow:0 0 8px var(--pcb);}
+#zoomBtns{position:absolute;bottom:8px;right:8px;display:flex;flex-direction:column;gap:4px;z-index:10;}
+.zoom-btn{width:28px;height:28px;background:rgba(0,12,8,0.85);border:1px solid var(--pcb-dim);
+  color:var(--pcb);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.zoom-btn:hover{border-color:var(--pcb);box-shadow:0 0 8px rgba(0,255,136,.3);}
+#tradeHint{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  background:rgba(0,12,8,0.9);border:1px solid var(--accent);color:var(--accent);
+  font-size:10px;letter-spacing:2px;padding:5px 14px;z-index:10;display:none;
+  pointer-events:none;text-shadow:0 0 6px var(--accent);}
+#notifications{position:absolute;top:44px;right:8px;display:flex;flex-direction:column;gap:4px;pointer-events:none;z-index:15;}
+.notif{background:rgba(0,12,8,0.92);border:1px solid var(--pcb-dim);color:var(--pcb);
+  font-size:10px;padding:4px 10px;letter-spacing:1px;
+  animation:nIn .2s ease,nOut .3s ease 2.7s forwards;}
+@keyframes nIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+@keyframes nOut{to{opacity:0;transform:translateX(16px)}}
+/* BOTTOM PANEL */
+#bottomPanel{height:var(--ph);background:var(--panel-bg);border-top:2px solid var(--pcb-dim);
+  display:flex;position:relative;z-index:20;flex-shrink:0;}
+#bottomPanel::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px;
+  background:repeating-linear-gradient(90deg,var(--pcb) 0,var(--pcb) 18px,transparent 18px,transparent 28px);opacity:.4;}
+#joystickZone{width:120px;min-width:100px;display:flex;align-items:center;justify-content:center;
+  border-right:var(--border);flex-shrink:0;}
+#joystickBase{width:80px;height:80px;border-radius:50%;border:2px solid var(--pcb-dim);
+  background:radial-gradient(circle,var(--pcb-faint) 0%,var(--bg) 100%);
+  position:relative;box-shadow:0 0 16px rgba(0,255,136,.1),inset 0 0 16px rgba(0,255,136,.05);}
+#joystickBase::before{content:'';position:absolute;inset:7px;border-radius:50%;border:1px dashed var(--pcb-dark);}
+#joystickKnob{width:26px;height:26px;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,var(--accent),var(--pcb-dim));
+  border:2px solid var(--pcb);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  box-shadow:0 0 10px var(--pcb),0 0 4px var(--accent);touch-action:none;cursor:grab;}
+#joystickKnob:active{cursor:grabbing;}
+#resourcePanel{flex:1;display:flex;flex-direction:column;border-right:var(--border);overflow:hidden;min-width:0;}
+.panel-title{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:3px;
+  color:var(--pcb-dim);padding:5px 8px 3px;border-bottom:var(--border);background:rgba(0,255,136,.03);flex-shrink:0;}
+#resourceList{flex:1;overflow-y:auto;padding:4px 8px;display:flex;flex-direction:column;gap:4px;}
+#resourceList::-webkit-scrollbar{width:3px;}
+#resourceList::-webkit-scrollbar-thumb{background:var(--pcb-dim);}
+.resource-row{display:flex;align-items:center;gap:5px;font-size:10px;}
+.res-icon{width:14px;flex-shrink:0;text-align:center;font-size:9px;}
+.res-name{flex:1;color:var(--pcb-dim);font-size:9px;}
+.res-bar{width:44px;height:3px;background:var(--pcb-dark);border-radius:2px;overflow:hidden;flex-shrink:0;}
+.res-bar-fill{height:100%;border-radius:2px;transition:width .5s ease;}
+.res-amount{color:var(--pcb);min-width:52px;text-align:right;font-size:10px;}
+#harvestersRow{padding:4px 8px;border-top:var(--border);display:flex;align-items:center;gap:5px;font-size:9px;flex-shrink:0;}
+.h-dot{width:7px;height:7px;border-radius:50%;border:1px solid var(--pcb-dim);background:var(--pcb-faint);transition:background .3s;}
+.h-dot.idle{background:var(--pcb);box-shadow:0 0 5px var(--pcb);}
+.h-dot.mining{background:var(--warn);border-color:var(--warn);box-shadow:0 0 5px var(--warn);}
+.h-dot.returning{background:var(--accent);border-color:var(--accent);box-shadow:0 0 5px var(--accent);}
+#actionPanel{width:148px;min-width:128px;display:flex;flex-direction:column;flex-shrink:0;}
+#actionButtons{flex:1;padding:5px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;}
+.action-btn{background:transparent;border:1px solid var(--pcb-dim);color:var(--pcb);
+  font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;
+  padding:6px 7px;cursor:pointer;text-align:left;transition:all .15s;position:relative;overflow:hidden;}
+.action-btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(0,255,136,.1),transparent);transition:left .3s;}
+.action-btn:hover::before{left:100%;}
+.action-btn:hover{border-color:var(--pcb);color:var(--accent);box-shadow:0 0 8px rgba(0,255,136,.2);}
+.action-btn:active{background:rgba(0,255,136,.08);transform:scale(.98);}
+.action-btn.locked{opacity:.3;cursor:not-allowed;}
+.btn-cost{display:block;color:var(--warn);font-size:8px;margin-top:1px;}
+/* TRADE POPUP */
+#tradePopup{display:none;position:fixed;bottom:calc(var(--ph) + 4px);left:50%;transform:translateX(-50%);
+  width:min(92vw,380px);background:var(--panel-bg);border:1px solid var(--pcb);
+  box-shadow:0 0 40px rgba(0,255,136,.2);z-index:30;animation:popIn .2s ease;}
+#tradePopup.active{display:block;}
+@keyframes popIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.trade-header{background:rgba(0,255,136,.05);padding:7px 12px;border-bottom:var(--border);
+  display:flex;justify-content:space-between;align-items:center;}
+.trade-planet-name{font-family:'Orbitron',monospace;font-size:11px;color:var(--accent);text-shadow:0 0 8px var(--accent);}
+.trade-civ-type{font-size:8px;color:var(--pcb-dim);letter-spacing:2px;}
+.close-btn{background:none;border:1px solid var(--pcb-dim);color:var(--pcb-dim);
+  width:20px;height:20px;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.close-btn:hover{border-color:var(--danger);color:var(--danger);}
+.trade-body{padding:8px 12px;display:flex;flex-direction:column;gap:5px;}
+.civ-message{color:var(--pcb-dim);font-size:9px;font-style:italic;border-left:2px solid var(--pcb-dark);padding-left:7px;line-height:1.5;}
+.trade-offers{display:flex;flex-direction:column;gap:3px;}
+.trade-offer{display:flex;align-items:center;gap:6px;padding:5px 8px;
+  border:1px solid var(--pcb-dark);background:rgba(0,255,136,.02);cursor:pointer;transition:all .15s;font-size:10px;}
+.trade-offer:hover{border-color:var(--pcb-dim);background:rgba(0,255,136,.06);}
+.trade-offer .give{color:var(--danger);flex:1;}
+.trade-offer .arrow{color:var(--pcb-dim);font-size:9px;}
+.trade-offer .receive{color:var(--pcb);flex:1;text-align:right;}
+/* WARP */
+#warpOverlay{display:none;position:fixed;inset:0;background:var(--bg);z-index:50;
+  align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+#warpOverlay.active{display:flex;}
+#warpCanvas{position:absolute;inset:0;width:100%;height:100%;}
+.warp-title{font-family:'Orbitron',monospace;font-size:clamp(16px,4vw,28px);
+  letter-spacing:8px;color:var(--accent);text-shadow:0 0 30px var(--accent);z-index:1;
+  animation:wpulse .5s ease infinite alternate;}
+@keyframes wpulse{from{opacity:.6}to{opacity:1}}
+/* IDLE */
+#idlePopup{display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;background:rgba(0,0,0,.8);}
+#idlePopup.active{display:flex;}
+.idle-card{background:var(--panel-bg);border:1px solid var(--pcb);padding:20px;
+  width:min(90vw,340px);box-shadow:0 0 50px rgba(0,255,136,.15);animation:popIn .3s ease;}
+.idle-title{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:4px;color:var(--accent);margin-bottom:12px;text-align:center;}
+.idle-time{font-size:9px;color:var(--pcb-dim);text-align:center;margin-bottom:10px;}
+.idle-earnings{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;border:var(--border);padding:8px;}
+.idle-row{display:flex;justify-content:space-between;font-size:10px;}
+.idle-collect-btn{width:100%;background:transparent;border:1px solid var(--pcb);color:var(--pcb);
+  font-family:'Orbitron',monospace;font-size:10px;letter-spacing:3px;padding:9px;cursor:pointer;transition:all .2s;text-shadow:0 0 8px var(--pcb);}
+.idle-collect-btn:hover{background:rgba(0,255,136,.1);box-shadow:0 0 20px rgba(0,255,136,.2);}
+body::after{content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent 0px,transparent 3px,rgba(0,0,0,.07) 3px,rgba(0,0,0,.07) 4px);
+  pointer-events:none;z-index:100;}
+</style>
+</head>
+<body>
+<div id="gameWrap">
+  <canvas id="mainCanvas"></canvas>
+  <div id="hud">
+    <div class="hud-block">
+      <span class="hud-label">SYSTEM</span>
+      <span class="hud-val" id="systemName">SOL</span>
+    </div>
+    <div class="hud-block" style="text-align:center">
+      <span class="hud-label">CREDITS</span>
+      <span class="hud-val" id="creditsDisplay">150 CR</span>
+    </div>
+    <div class="hud-block" style="text-align:right">
+      <span class="hud-label">ZOOM / SPEED</span>
+      <span class="hud-val" id="statsDisplay">1.0x / 1.0x</span>
+    </div>
+  </div>
+  <div id="zoomBtns">
+    <button class="zoom-btn" onclick="adjustZoom(1.25)">+</button>
+    <button class="zoom-btn" onclick="adjustZoom(0.8)">−</button>
+  </div>
+  <div id="tradeHint">[ TAP TO TRADE ]</div>
+  <div id="notifications"></div>
+</div>
+<div id="bottomPanel">
+  <div id="joystickZone">
+    <div id="joystickBase"><div id="joystickKnob"></div></div>
+  </div>
+  <div id="resourcePanel">
+    <div class="panel-title">◈ CARGO MANIFEST</div>
+    <div id="resourceList"></div>
+    <div id="harvestersRow">
+      <span style="color:var(--pcb-dim);font-size:8px;letter-spacing:1px">HARVESTERS</span>
+      <div id="harvesterDots" style="display:flex;gap:3px;margin-left:4px"></div>
+      <span id="harvesterCount" style="margin-left:auto;font-size:9px;color:var(--pcb-dim)">1/6</span>
+    </div>
+  </div>
+  <div id="actionPanel">
+    <div class="panel-title">◈ OPERATIONS</div>
+    <div id="actionButtons">
+      <button class="action-btn" onclick="buildHarvester()">
+        <div>⬡ BUILD HARVESTER</div>
+        <span class="btn-cost">50 IRON</span>
+      </button>
+      <button class="action-btn" onclick="upgradeSpeed()">
+        <div>↑ UPGRADE ENGINES</div>
+        <span class="btn-cost" id="speedCostLabel">100 CR</span>
+      </button>
+      <button class="action-btn" onclick="upgradeCargo()">
+        <div>⊞ EXPAND CARGO</div>
+        <span class="btn-cost" id="cargoCostLabel">75 CR</span>
+      </button>
+      <button class="action-btn" onclick="buildOutpost()">
+        <div>◎ BUILD OUTPOST</div>
+        <span class="btn-cost">200 CR · NEAR PLANET</span>
+      </button>
+      <button class="action-btn locked" id="warpBtn" onclick="initiateWarp()">
+        <div>⟡ WARP DRIVE</div>
+        <span class="btn-cost" id="warpCostLabel">LOCKED · 1000 CR</span>
+      </button>
+    </div>
+  </div>
+</div>
+<div id="tradePopup">
+  <div class="trade-header">
+    <div>
+      <div class="trade-planet-name" id="tradePlanetName">PLANET</div>
+      <div class="trade-civ-type" id="tradeCivType">CIVILIZATION</div>
+    </div>
+    <button class="close-btn" onclick="closeTrade()">✕</button>
+  </div>
+  <div class="trade-body">
+    <div class="civ-message" id="civMessage"></div>
+    <div class="trade-offers" id="tradeOffers"></div>
+  </div>
+</div>
+<div id="warpOverlay">
+  <canvas id="warpCanvas"></canvas>
+  <div class="warp-title">INITIATING WARP SEQUENCE</div>
+  <div id="warpStatus" style="font-family:'Share Tech Mono';font-size:10px;color:var(--pcb-dim);letter-spacing:2px;z-index:1">CALCULATING TRAJECTORY...</div>
+</div>
+<div id="idlePopup">
+  <div class="idle-card">
+    <div class="idle-title">WELCOME BACK COMMANDER</div>
+    <div class="idle-time" id="idleTimeText"></div>
+    <div class="idle-earnings" id="idleEarnings"></div>
+    <button class="idle-collect-btn" onclick="collectIdle()">▶ COLLECT EARNINGS</button>
+  </div>
+</div>
+<script>
+// ── SCALE ──────────────────────────────────
+// 1 AU = 10000 world-units. Real solar system up to Neptune ~30 AU.
+const AU = 10000;
+
+const SOL_SYSTEM = {
+  name:'SOL',
+  star:{name:'SOL',r:500,color:'#ffdd44'},
+  bodies:[
+    {name:'MERCURY',orbitAU:.387,r:18, orbitSpeed:1.6e-4,civ:'ANCIENT',     moons:[]},
+    {name:'VENUS',  orbitAU:.723,r:44, orbitSpeed:6.3e-5,civ:'TECHNOCRACY', moons:[]},
+    {name:'EARTH',  orbitAU:1.00,r:48, orbitSpeed:3.5e-5,civ:'AGRARIAN',
+     moons:[{name:'LUNA',orbitR:180,r:13,orbitSpeed:4.5e-4}]},
+    {name:'MARS',   orbitAU:1.52,r:26, orbitSpeed:1.8e-5,civ:'INDUSTRIAL',
+     moons:[{name:'PHOBOS',orbitR:105,r:6,orbitSpeed:1.2e-3},{name:'DEIMOS',orbitR:170,r:5,orbitSpeed:5e-4}]},
+    {name:'CERES',  orbitAU:2.77,r:14, orbitSpeed:6.5e-6,civ:'NOMADIC',     moons:[]},
+    {name:'JUPITER',orbitAU:5.20,r:200,orbitSpeed:1.7e-6,civ:'HIVE-MIND',
+     moons:[
+       {name:'IO',      orbitR:360,r:17,orbitSpeed:1.5e-4},
+       {name:'EUROPA',  orbitR:500,r:14,orbitSpeed:7e-5},
+       {name:'GANYMEDE',orbitR:700,r:20,orbitSpeed:3.5e-5},
+       {name:'CALLISTO',orbitR:900,r:18,orbitSpeed:1.5e-5},
+     ]},
+    {name:'SATURN', orbitAU:9.58,r:168,orbitSpeed:5.7e-7,civ:'ANCIENT',hasRings:true,
+     moons:[{name:'TITAN',orbitR:580,r:20,orbitSpeed:2.2e-5},{name:'ENCELADUS',orbitR:300,r:8,orbitSpeed:9e-5}]},
+    {name:'URANUS', orbitAU:19.2,r:110,orbitSpeed:1.4e-7,civ:'TECHNOCRACY', moons:[]},
+    {name:'NEPTUNE',orbitAU:30.0,r:107,orbitSpeed:7.1e-8,civ:'NOMADIC',     moons:[]},
+  ]
+};
+
+const CIVS_MSG={
+  'ANCIENT':    'We have watched stars die. Your iron is... acceptable.',
+  'TECHNOCRACY':'Efficiency defines value. Present your data for assessment.',
+  'AGRARIAN':   'We farm light and stone. Crystal for crystal.',
+  'INDUSTRIAL': 'The forge never sleeps. Iron feeds the machine.',
+  'NOMADIC':    'We carry everything we own. Trade fast, we move soon.',
+  'HIVE-MIND':  'WE ARE MANY. WHAT YOU HAVE, WE REQUIRE.',
+};
+
+// ── CAMERA ────────────────────────────────
+const CAM={x:0,y:0,zoom:0.015,targetZoom:0.015,minZoom:0.003,maxZoom:0.4};
+
+// ── STATE ─────────────────────────────────
+const STATE={
+  credits:150,
+  resources:{
+    iron:   {amount:0,max:200,icon:'◈',color:'#aaddcc'},
+    crystal:{amount:0,max:100,icon:'◇',color:'#88ffee'},
+    data:   {amount:0,max:80, icon:'▣',color:'#44aaff'},
+  },
+  ship:{wx:0,wy:0,vx:0,vy:0,speed:1,speedLevel:1,angle:0,cargoLevel:1},
+  harvesters:{owned:1,max:6},
+  outposts:[],
+  warpUnlocked:false,
+  currentSystem:'SOL',
+  joystick:{active:false,dx:0,dy:0},
+  target:null,
+};
+
+const PLANETS=[];
+const HARV_SHIPS=[];
+const PARTICLES=[];
+let nearPlanet=null;
+
+// ── CANVAS ────────────────────────────────
+const canvas=document.getElementById('mainCanvas');
+const ctx=canvas.getContext('2d');
+
+function resizeCanvas(){
+  const w=document.getElementById('gameWrap');
+  canvas.width=w.clientWidth; canvas.height=w.clientHeight;
+}
+
+function w2s(wx,wy){return{sx:canvas.width/2+(wx-CAM.x)*CAM.zoom,sy:canvas.height/2+(wy-CAM.y)*CAM.zoom};}
+function s2w(sx,sy){return{wx:(sx-canvas.width/2)/CAM.zoom+CAM.x,wy:(sy-canvas.height/2)/CAM.zoom+CAM.y};}
+
+// ── SYSTEM GEN ────────────────────────────
+function genSystem(def){
+  PLANETS.length=0;
+  PLANETS.push({wx:0,wy:0,r:def.star.r,orbitR:0,orbitSpeed:0,angle:0,
+    name:def.star.name,isSun:true,starColor:def.star.color,parent:null});
+  def.bodies.forEach(b=>{
+    const orbitR=b.orbitAU*AU;
+    const angle=Math.random()*Math.PI*2;
+    const pl={
+      wx:orbitR*Math.cos(angle),wy:orbitR*Math.sin(angle),
+      r:b.r,orbitR,orbitSpeed:b.orbitSpeed,angle,
+      name:b.name,civ:b.civ,hasRings:b.hasRings||false,
+      isSun:false,isMoon:false,
+      tradeRates:genTrades(b.civ),hasOutpost:false,
+      parent:PLANETS[0],
+    };
+    PLANETS.push(pl);
+    (b.moons||[]).forEach(m=>{
+      const ma=Math.random()*Math.PI*2;
+      PLANETS.push({
+        wx:pl.wx+m.orbitR*Math.cos(ma),wy:pl.wy+m.orbitR*Math.sin(ma),
+        r:m.r,orbitR:m.orbitR,orbitSpeed:m.orbitSpeed,angle:ma,
+        name:m.name,civ:null,hasRings:false,isSun:false,isMoon:true,
+        tradeRates:[],hasOutpost:false,parent:pl,
+      });
+    });
+  });
+}
+
+function genTrades(civ){
+  const res=['iron','crystal','data'];
+  const out=[];
+  for(let i=0;i<2+Math.floor(Math.random()*2);i++){
+    const g=res[Math.floor(Math.random()*res.length)];
+    const r=res[Math.floor(Math.random()*res.length)];
+    if(g===r) continue;
+    const rate=(0.6+Math.random()*1.4).toFixed(1);
+    out.push({give:g,giveAmt:20,receive:r,receiveAmt:Math.floor(20*rate)});
+  }
+  const r2=res[Math.floor(Math.random()*res.length)];
+  out.push({give:r2,giveAmt:25,receive:'credits',receiveAmt:Math.floor(25+Math.random()*50)});
+  return out;
+}
+
+// ── BG STARS ──────────────────────────────
+const BGSTARS=Array.from({length:180},()=>({
+  x:Math.random(),y:Math.random(),r:Math.random()*1.3,
+  b:.2+Math.random()*.8,t:Math.random()*Math.PI*2,
+}));
+function drawBgStars(){
+  const now=Date.now()/1000;
+  BGSTARS.forEach(s=>{
+    const b=s.b*(.75+.25*Math.sin(s.t+now));
+    ctx.beginPath(); ctx.arc(s.x*canvas.width,s.y*canvas.height,s.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(0,255,136,${b*.4})`; ctx.fill();
+  });
+}
+
+function drawGrid(){
+  const step=AU*.5;
+  const left=CAM.x-canvas.width/CAM.zoom/2,top=CAM.y-canvas.height/CAM.zoom/2;
+  const right=left+canvas.width/CAM.zoom,bot=top+canvas.height/CAM.zoom;
+  ctx.strokeStyle='rgba(0,255,136,0.025)'; ctx.lineWidth=1;
+  for(let wx=Math.floor(left/step)*step;wx<right;wx+=step){
+    const{sx}=w2s(wx,0); ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx,canvas.height);ctx.stroke();
+  }
+  for(let wy=Math.floor(top/step)*step;wy<bot;wy+=step){
+    const{sy}=w2s(0,wy); ctx.beginPath();ctx.moveTo(0,sy);ctx.lineTo(canvas.width,sy);ctx.stroke();
+  }
+}
+
+// ── DRAW PLANETS ──────────────────────────
+function drawPlanets(){
+  // orbit rings
+  PLANETS.forEach(p=>{
+    if(p.isSun||!p.parent) return;
+    const{sx:px,sy:py}=w2s(p.parent.wx,p.parent.wy);
+    const orb=p.orbitR*CAM.zoom;
+    if(orb<1) return;
+    ctx.beginPath(); ctx.arc(px,py,orb,0,Math.PI*2);
+    ctx.strokeStyle=p.isMoon?'rgba(0,255,136,0.03)':'rgba(0,255,136,0.055)';
+    ctx.lineWidth=1; ctx.setLineDash(p.isMoon?[2,7]:[4,9]); ctx.stroke(); ctx.setLineDash([]);
+  });
+  // bodies
+  PLANETS.forEach(p=>{
+    const{sx,sy}=w2s(p.wx,p.wy);
+    const sr=Math.max(p.r*CAM.zoom, p.isSun?4:1.5);
+    if(sx<-sr-20||sx>canvas.width+sr+20||sy<-sr-20||sy>canvas.height+sr+20) return; // offscreen cull
+
+    if(p.isSun){
+      const grad=ctx.createRadialGradient(sx,sy,0,sx,sy,sr*3);
+      grad.addColorStop(0,'rgba(255,220,68,0.22)');grad.addColorStop(1,'rgba(255,220,68,0)');
+      ctx.beginPath();ctx.arc(sx,sy,sr*3,0,Math.PI*2);ctx.fillStyle=grad;ctx.fill();
+      ctx.beginPath();ctx.arc(sx,sy,sr,0,Math.PI*2);
+      ctx.strokeStyle='#ffdd44';ctx.lineWidth=1.5;ctx.shadowColor='#ffdd44';ctx.shadowBlur=12;ctx.stroke();ctx.shadowBlur=0;
+      ctx.strokeStyle='rgba(255,220,68,0.35)';ctx.lineWidth=1;
+      [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dx,dy])=>{
+        ctx.beginPath();ctx.moveTo(sx+dx*sr,sy+dy*sr);ctx.lineTo(sx+dx*(sr*1.7),sy+dy*(sr*1.7));ctx.stroke();
+      });
+      return;
+    }
+
+    const isNear=nearPlanet===p;
+    if(p.hasRings&&sr>2){
+      ctx.beginPath();ctx.ellipse(sx,sy,sr*2.1,sr*.46,.3,0,Math.PI*2);
+      ctx.strokeStyle='rgba(0,255,136,0.2)';ctx.lineWidth=Math.max(1,sr*.14);ctx.stroke();
+    }
+    ctx.beginPath();ctx.arc(sx,sy,sr,0,Math.PI*2);
+    ctx.strokeStyle=isNear?'#00ffcc':p.isMoon?'#009955':'#00ff88';
+    ctx.lineWidth=isNear?2:1.5;
+    if(isNear){ctx.shadowColor='#00ffcc';ctx.shadowBlur=12;}
+    ctx.stroke();ctx.shadowBlur=0;
+    // dot texture
+    if(!p.isMoon&&sr>5){
+      ctx.fillStyle='rgba(0,255,136,0.09)';
+      for(let d=sr*.3;d<sr*.85;d+=sr*.28){
+        for(let a=0;a<Math.PI*2;a+=1.1){
+          const px2=sx+Math.cos(a)*d,py2=sy+Math.sin(a)*d;
+          ctx.beginPath();ctx.arc(px2,py2,Math.max(.5,sr*.055),0,Math.PI*2);ctx.fill();
+        }
+      }
+    }
+    if(p.hasOutpost){
+      ctx.beginPath();ctx.arc(sx,sy,sr+Math.max(4,sr*.4),0,Math.PI*2);
+      ctx.strokeStyle='#ffaa00';ctx.lineWidth=1;ctx.shadowColor='#ffaa00';ctx.shadowBlur=6;ctx.stroke();ctx.shadowBlur=0;
+    }
+    if(sr>1.5){
+      const fs=Math.max(7,Math.min(11,sr*.7));
+      ctx.font=`${fs}px Share Tech Mono`;
+      ctx.fillStyle=isNear?'#00ffcc':p.isMoon?'rgba(0,160,80,.5)':'rgba(0,255,136,.5)';
+      ctx.textAlign='center';ctx.fillText(p.name,sx,sy+sr+10);
+    }
+  });
+}
+
+// ── DRAW SHIP ─────────────────────────────
+function drawShip(){
+  const{sx,sy}=w2s(STATE.ship.wx,STATE.ship.wy);
+  const a=STATE.ship.angle;
+  if(STATE.joystick.active||STATE.target){
+    ctx.beginPath();ctx.arc(sx-Math.cos(a)*8,sy-Math.sin(a)*8,3+Math.random()*3,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,255,136,0.28)';ctx.fill();
+  }
+  ctx.save();ctx.translate(sx,sy);ctx.rotate(a);
+  ctx.strokeStyle='#00ff88';ctx.lineWidth=1.5;ctx.shadowColor='#00ff88';ctx.shadowBlur=8;
+  ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-8,-7);ctx.lineTo(-5,0);ctx.lineTo(-8,7);ctx.closePath();
+  ctx.stroke();ctx.fillStyle='rgba(0,255,136,0.07)';ctx.fill();
+  ctx.strokeStyle='rgba(0,255,136,0.45)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(-3,-4);ctx.lineTo(-8,-10);ctx.lineTo(-6,-5);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-3,4);ctx.lineTo(-8,10);ctx.lineTo(-6,5);ctx.stroke();
+  ctx.beginPath();ctx.arc(5,0,2,0,Math.PI*2);
+  ctx.fillStyle='#00ffcc';ctx.shadowColor='#00ffcc';ctx.shadowBlur=6;ctx.fill();
+  ctx.shadowBlur=0;ctx.restore();
+}
+
+// ── DRAW HARVESTERS ───────────────────────
+function drawHarvesters(){
+  HARV_SHIPS.forEach(h=>{
+    const{sx,sy}=w2s(h.wx,h.wy);
+    ctx.save();ctx.translate(sx,sy);ctx.rotate(h.angle);
+    const col=h.phase==='mining'?'#ffaa00':h.phase==='returning'?'#00ffcc':'#00cc66';
+    ctx.strokeStyle=col;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(5,0);ctx.lineTo(-4,-3);ctx.lineTo(-4,3);ctx.closePath();ctx.stroke();
+    ctx.restore();
+    if(h.targetPlanet){
+      const tp=w2s(h.targetPlanet.wx,h.targetPlanet.wy);
+      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(tp.sx,tp.sy);
+      ctx.strokeStyle='rgba(0,255,136,0.055)';ctx.lineWidth=.5;ctx.setLineDash([3,8]);ctx.stroke();ctx.setLineDash([]);
+    }
+  });
+}
+
+// ── PARTICLES ─────────────────────────────
+function drawParticles(){
+  for(let i=PARTICLES.length-1;i>=0;i--){
+    const p=PARTICLES[i];
+    p.wx+=p.vwx;p.wy+=p.vwy;p.life-=.025;
+    if(p.life<=0){PARTICLES.splice(i,1);continue;}
+    const{sx,sy}=w2s(p.wx,p.wy);
+    ctx.beginPath();ctx.arc(sx,sy,p.r*p.life,0,Math.PI*2);
+    ctx.fillStyle=`rgba(0,255,136,${p.life*.45})`;ctx.fill();
+  }
+}
+
+function drawTarget(){
+  if(!STATE.target)return;
+  const{sx:tx,sy:ty}=w2s(STATE.target.wx,STATE.target.wy);
+  const{sx,sy}=w2s(STATE.ship.wx,STATE.ship.wy);
+  ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(tx,ty);
+  ctx.strokeStyle='rgba(0,255,136,.08)';ctx.lineWidth=1;ctx.setLineDash([4,10]);ctx.stroke();ctx.setLineDash([]);
+  ctx.beginPath();ctx.arc(tx,ty,5,0,Math.PI*2);
+  ctx.strokeStyle='rgba(0,255,136,.3)';ctx.lineWidth=1;ctx.stroke();
+}
+
+// ── GAME LOOP ─────────────────────────────
+let lastTs=0;
+function gameLoop(ts){
+  const dt=Math.min(ts-lastTs,50);lastTs=ts;
+  CAM.zoom+=(CAM.targetZoom-CAM.zoom)*.1;
+  ctx.fillStyle='#000d07';ctx.fillRect(0,0,canvas.width,canvas.height);
+  drawBgStars();drawGrid();
+  // update planet positions
+  PLANETS.forEach(p=>{
+    if(p.isSun||!p.parent)return;
+    p.angle+=p.orbitSpeed*dt;
+    p.wx=p.parent.wx+Math.cos(p.angle)*p.orbitR;
+    p.wy=p.parent.wy+Math.sin(p.angle)*p.orbitR;
+  });
+  drawPlanets();drawTarget();
+  updateHarvesters(dt);
+  drawHarvesters();
+  updateShip(dt);
+  drawShip();
+  drawParticles();
+  checkProximity();
+  softFollow();
+  updateHUD();
+  requestAnimationFrame(gameLoop);
+}
+
+// ── SHIP MOVEMENT ─────────────────────────
+const BASE_SPD=120; // world-units/sec
+function updateShip(dt){
+  const s=STATE.ship;
+  const spd=BASE_SPD*s.speed*(dt/1000);
+  if(STATE.joystick.active&&(Math.abs(STATE.joystick.dx)>.05||Math.abs(STATE.joystick.dy)>.05)){
+    STATE.target=null;
+    s.vx+=STATE.joystick.dx*spd*.18; s.vy+=STATE.joystick.dy*spd*.18;
+    s.angle=Math.atan2(STATE.joystick.dy,STATE.joystick.dx);
+    if(Math.random()<.25) thrustPart(s);
+  } else if(STATE.target){
+    const dx=STATE.target.wx-s.wx,dy=STATE.target.wy-s.wy;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<25){STATE.target=null;s.vx*=.4;s.vy*=.4;}
+    else{
+      s.angle=Math.atan2(dy,dx);
+      s.vx+=(dx/dist)*spd*.14; s.vy+=(dy/dist)*spd*.14;
+      if(Math.random()<.2) thrustPart(s);
+    }
+  }
+  const maxV=spd*2.5;
+  const mag=Math.sqrt(s.vx*s.vx+s.vy*s.vy);
+  if(mag>maxV){s.vx=(s.vx/mag)*maxV;s.vy=(s.vy/mag)*maxV;}
+  s.vx*=.88;s.vy*=.88;
+  s.wx+=s.vx;s.wy+=s.vy;
+}
+function thrustPart(s){
+  PARTICLES.push({wx:s.wx-Math.cos(s.angle)*12,wy:s.wy-Math.sin(s.angle)*12,
+    vwx:(Math.random()-.5)*.5-Math.cos(s.angle)*.3,vwy:(Math.random()-.5)*.5-Math.sin(s.angle)*.3,r:2,life:1});
+}
+function softFollow(){
+  CAM.x+=(STATE.ship.wx-CAM.x)*.05;
+  CAM.y+=(STATE.ship.wy-CAM.y)*.05;
+}
+
+// ── HARVESTER AI ──────────────────────────
+// phases: idle → heading_out → mining → returning → idle
+const HARV_BASE_SPD=90; // world-units/sec
+function updateHarvesters(dt){
+  const spd=HARV_BASE_SPD*(dt/1000);
+  HARV_SHIPS.forEach(h=>{
+    switch(h.phase){
+      case 'idle':{
+        const cands=PLANETS.filter(p=>!p.isSun&&!p.isMoon);
+        if(!cands.length)break;
+        h.targetPlanet=cands[Math.floor(Math.random()*cands.length)];
+        h.phase='heading_out';
+        break;
+      }
+      case 'heading_out':{
+        if(!h.targetPlanet){h.phase='idle';break;}
+        const dx=h.targetPlanet.wx-h.wx,dy=h.targetPlanet.wy-h.wy;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        h.angle=Math.atan2(dy,dx);
+        if(dist<h.targetPlanet.r+100){
+          h.phase='mining';h.mineTimer=3000+Math.random()*2000;
+        } else {
+          h.wx+=(dx/dist)*spd;h.wy+=(dy/dist)*spd;
+        }
+        break;
+      }
+      case 'mining':{
+        h.mineTimer-=dt;
+        h.wx+=(Math.random()-.5)*1.5;h.wy+=(Math.random()-.5)*1.5;
+        if(h.mineTimer<=0){
+          const res=['iron','crystal','data'];
+          const rk=res[Math.floor(Math.random()*res.length)];
+          h.cargo={resource:rk,amount:15+Math.floor(Math.random()*20)};
+          h.phase='returning';h.targetPlanet=null;
+        }
+        break;
+      }
+      case 'returning':{
+        const dx=STATE.ship.wx-h.wx,dy=STATE.ship.wy-h.wy;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        h.angle=Math.atan2(dy,dx);
+        if(dist<50){
+          if(h.cargo){
+            const res=STATE.resources[h.cargo.resource];
+            if(res){
+              const added=Math.min(h.cargo.amount,res.max-res.amount);
+              if(added>0){res.amount+=added;notify(`⬡ +${added} ${h.cargo.resource.toUpperCase()}`);}
+            }
+            h.cargo=null;
+          }
+          h.phase='idle';
+        } else {
+          h.wx+=(dx/dist)*spd;h.wy+=(dy/dist)*spd;
+        }
+        break;
+      }
+    }
+  });
+}
+
+// ── PROXIMITY ─────────────────────────────
+function checkProximity(){
+  nearPlanet=null;
+  PLANETS.forEach(p=>{
+    if(p.isSun)return;
+    const dx=p.wx-STATE.ship.wx,dy=p.wy-STATE.ship.wy;
+    if(Math.sqrt(dx*dx+dy*dy)<p.r+150) nearPlanet=p;
+  });
+  document.getElementById('tradeHint').style.display=(nearPlanet&&!nearPlanet.isMoon)?'block':'none';
+}
+
+// ── HUD ───────────────────────────────────
+function updateHUD(){
+  document.getElementById('creditsDisplay').textContent=Math.floor(STATE.credits)+' CR';
+  const zoomDisplay=(CAM.zoom/0.015).toFixed(1);
+  document.getElementById('statsDisplay').textContent=zoomDisplay+'x / '+STATE.ship.speed.toFixed(1)+'x';
+  // resources
+  const el=document.getElementById('resourceList');
+  let html='';
+  for(const[k,res] of Object.entries(STATE.resources)){
+    const pct=Math.min(100,res.amount/res.max*100).toFixed(0);
+    html+=`<div class="resource-row">
+      <span class="res-icon" style="color:${res.color}">${res.icon}</span>
+      <span class="res-name">${k.toUpperCase()}</span>
+      <div class="res-bar"><div class="res-bar-fill" style="width:${pct}%;background:${res.color};box-shadow:0 0 4px ${res.color}"></div></div>
+      <span class="res-amount" style="color:${res.color}">${Math.floor(res.amount)}/${res.max}</span>
+    </div>`;
+  }
+  el.innerHTML=html;
+  // harvester dots
+  const de=document.getElementById('harvesterDots');
+  let dh='';
+  for(let i=0;i<STATE.harvesters.max;i++){
+    if(i>=STATE.harvesters.owned){dh+=`<div class="h-dot"></div>`;continue;}
+    const h=HARV_SHIPS[i];
+    const cls=!h?'idle':h.phase==='mining'?'mining':h.phase==='returning'?'returning':'idle';
+    dh+=`<div class="h-dot ${cls}"></div>`;
+  }
+  de.innerHTML=dh;
+  document.getElementById('harvesterCount').textContent=`${STATE.harvesters.owned}/${STATE.harvesters.max}`;
+  // warp unlock
+  if(STATE.credits>=1000&&!STATE.warpUnlocked){
+    document.getElementById('warpBtn').classList.remove('locked');
+    document.getElementById('warpCostLabel').textContent='1000 CR';
+  }
+}
+
+// ── ZOOM ──────────────────────────────────
+function adjustZoom(f){CAM.targetZoom=Math.max(CAM.minZoom,Math.min(CAM.maxZoom,CAM.targetZoom*f));}
+document.getElementById('gameWrap').addEventListener('wheel',e=>{
+  e.preventDefault();adjustZoom(e.deltaY<0?1.12:.89);},{passive:false});
+let _lastPinch=0;
+canvas.addEventListener('touchstart',e=>{if(e.touches.length===2)_lastPinch=pinchD(e);},{passive:true});
+canvas.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=pinchD(e);if(_lastPinch)adjustZoom(d/_lastPinch);_lastPinch=d;}},{passive:true});
+function pinchD(e){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;return Math.sqrt(dx*dx+dy*dy);}
+
+// ── CLICK/TAP TO MOVE ─────────────────────
+canvas.addEventListener('click',e=>{
+  if(STATE.joystick.active)return;
+  const rect=canvas.getBoundingClientRect();
+  const sx=(e.clientX-rect.left)*(canvas.width/rect.width);
+  const sy=(e.clientY-rect.top)*(canvas.height/rect.height);
+  if(nearPlanet&&!nearPlanet.isMoon){openTrade(nearPlanet);return;}
+  const{wx,wy}=s2w(sx,sy);STATE.target={wx,wy};
+});
+canvas.addEventListener('touchend',e=>{
+  if(e.changedTouches.length>1)return;
+  e.preventDefault();
+  const t=e.changedTouches[0];
+  const rect=canvas.getBoundingClientRect();
+  const sx=(t.clientX-rect.left)*(canvas.width/rect.width);
+  const sy=(t.clientY-rect.top)*(canvas.height/rect.height);
+  if(nearPlanet&&!nearPlanet.isMoon){openTrade(nearPlanet);return;}
+  const{wx,wy}=s2w(sx,sy);STATE.target={wx,wy};
+},{passive:false});
+
+// ── JOYSTICK ──────────────────────────────
+const jBase=document.getElementById('joystickBase');
+const jKnob=document.getElementById('joystickKnob');
+const JR=27;
+function jPos(e){
+  const rect=jBase.getBoundingClientRect();
+  const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
+  const src=e.touches?e.touches[0]:e;
+  let dx=src.clientX-cx,dy=src.clientY-cy;
+  const mag=Math.sqrt(dx*dx+dy*dy);
+  if(mag>JR){dx=(dx/mag)*JR;dy=(dy/mag)*JR;}
+  return{dx,dy,nx:dx/JR,ny:dy/JR};
+}
+function jStart(e){e.preventDefault();STATE.joystick.active=true;STATE.target=null;jUpdate(e);}
+function jMove(e){e.preventDefault();if(!STATE.joystick.active)return;jUpdate(e);}
+function jEnd(e){e.preventDefault();STATE.joystick.active=false;STATE.joystick.dx=0;STATE.joystick.dy=0;jKnob.style.transform='translate(-50%,-50%)';}
+function jUpdate(e){const{dx,dy,nx,ny}=jPos(e);STATE.joystick.dx=nx;STATE.joystick.dy=ny;jKnob.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;}
+jKnob.addEventListener('mousedown',jStart);
+jKnob.addEventListener('touchstart',jStart,{passive:false});
+window.addEventListener('mousemove',jMove);
+window.addEventListener('touchmove',jMove,{passive:false});
+window.addEventListener('mouseup',jEnd);
+window.addEventListener('touchend',jEnd);
+
+// ── TRADE ─────────────────────────────────
+function openTrade(planet){
+  document.getElementById('tradePlanetName').textContent=planet.name;
+  document.getElementById('tradeCivType').textContent=(planet.civ||'UNKNOWN')+' CIVILIZATION';
+  document.getElementById('civMessage').textContent=CIVS_MSG[planet.civ]||'Trade with us.';
+  const el=document.getElementById('tradeOffers');
+  el.innerHTML='';
+  planet.tradeRates.forEach(t=>{
+    const gL=t.give==='credits'?`${t.giveAmt} CR`:`${t.giveAmt} ${t.give.toUpperCase()}`;
+    const rL=t.receive==='credits'?`${t.receiveAmt} CR`:`${t.receiveAmt} ${t.receive.toUpperCase()}`;
+    const div=document.createElement('div');
+    div.className='trade-offer';
+    div.innerHTML=`<span class="give">GIVE ${gL}</span><span class="arrow">→</span><span class="receive">GET ${rL}</span>`;
+    div.onclick=()=>doTrade(t,planet);
+    el.appendChild(div);
+  });
+  document.getElementById('tradePopup').classList.add('active');
+}
+function closeTrade(){document.getElementById('tradePopup').classList.remove('active');}
+function doTrade(t,planet){
+  if(t.give==='credits'){
+    if(STATE.credits<t.giveAmt){notify('⚠ INSUFFICIENT CREDITS');return;}
+    STATE.credits-=t.giveAmt;
+  } else {
+    const res=STATE.resources[t.give];
+    if(!res||res.amount<t.giveAmt){notify('⚠ INSUFFICIENT '+t.give.toUpperCase());return;}
+    res.amount-=t.giveAmt;
+  }
+  if(t.receive==='credits'){STATE.credits+=t.receiveAmt;}
+  else{const res=STATE.resources[t.receive];if(res)res.amount=Math.min(res.max,res.amount+t.receiveAmt);}
+  notify('✓ TRADE COMPLETE');
+  openTrade(planet);
+}
+
+// ── BUTTONS ───────────────────────────────
+function buildHarvester(){
+  if(STATE.harvesters.owned>=STATE.harvesters.max){notify('⚠ MAX HARVESTERS');return;}
+  if(STATE.resources.iron.amount<50){notify('⚠ NEED 50 IRON');return;}
+  STATE.resources.iron.amount-=50;
+  STATE.harvesters.owned++;
+  HARV_SHIPS.push({wx:STATE.ship.wx+30,wy:STATE.ship.wy+30,angle:0,phase:'idle',targetPlanet:null,cargo:null,mineTimer:0});
+  notify('✓ HARVESTER DEPLOYED');
+}
+function upgradeSpeed(){
+  const cost=STATE.ship.speedLevel*100;
+  if(STATE.credits<cost){notify(`⚠ NEED ${cost} CR`);return;}
+  STATE.credits-=cost;
+  STATE.ship.speed=Math.min(6,STATE.ship.speed+0.5);
+  STATE.ship.speedLevel++;
+  document.getElementById('speedCostLabel').textContent=(STATE.ship.speedLevel*100)+' CR';
+  notify('✓ ENGINES → '+STATE.ship.speed.toFixed(1)+'x');
+}
+function upgradeCargo(){
+  const cost=(STATE.ship.cargoLevel||1)*75;
+  if(STATE.credits<cost){notify(`⚠ NEED ${cost} CR`);return;}
+  STATE.credits-=cost;
+  Object.values(STATE.resources).forEach(r=>r.max=Math.floor(r.max*1.35));
+  STATE.ship.cargoLevel=(STATE.ship.cargoLevel||1)+1;
+  document.getElementById('cargoCostLabel').textContent=(STATE.ship.cargoLevel*75)+' CR';
+  notify('✓ CARGO EXPANDED');
+}
+function buildOutpost(){
+  if(!nearPlanet||nearPlanet.isMoon){notify('⚠ APPROACH A PLANET FIRST');return;}
+  if(nearPlanet.hasOutpost){notify('⚠ OUTPOST EXISTS');return;}
+  if(STATE.credits<200){notify('⚠ NEED 200 CR');return;}
+  STATE.credits-=200;
+  nearPlanet.hasOutpost=true;
+  STATE.outposts.push({planetName:nearPlanet.name,planetRef:nearPlanet});
+  notify('✓ OUTPOST: '+nearPlanet.name);
+}
+function initiateWarp(){
+  if(!STATE.warpUnlocked){
+    if(STATE.credits<1000){notify('⚠ NEED 1000 CR');return;}
+    STATE.credits-=1000;STATE.warpUnlocked=true;
+  }
+  startWarp();
+}
+
+// ── WARP ──────────────────────────────────
+const ALT_SYSTEMS=['ALPHA DRACONIS','NGC-4501','BARNARD','WOLF-359','HD-40307','TRAPPIST-1','KEPLER-452'];
+function startWarp(){
+  const ov=document.getElementById('warpOverlay');ov.classList.add('active');
+  const wc=document.getElementById('warpCanvas');const wctx=wc.getContext('2d');
+  wc.width=window.innerWidth;wc.height=window.innerHeight;
+  const stars=Array.from({length:200},()=>({angle:Math.random()*Math.PI*2,speed:.5+Math.random()*2}));
+  let frame=0;
+  const msgs=['CALCULATING TRAJECTORY...','CHARGING WARP COILS...','ENGAGING DRIVE...','TRANSLATING TO NEW SYSTEM...'];
+  const statusEl=document.getElementById('warpStatus');
+  function anim(){
+    frame++;
+    wctx.fillStyle='rgba(0,13,7,0.14)';wctx.fillRect(0,0,wc.width,wc.height);
+    statusEl.textContent=msgs[Math.min(Math.floor(frame/30),msgs.length-1)];
+    stars.forEach(s=>{
+      s.speed*=1.014;
+      const ox=wc.width/2+Math.cos(s.angle)*s.speed*(frame*.5);
+      const oy=wc.height/2+Math.sin(s.angle)*s.speed*(frame*.5);
+      const nx=wc.width/2+Math.cos(s.angle)*s.speed*(frame*.5+4);
+      const ny=wc.height/2+Math.sin(s.angle)*s.speed*(frame*.5+4);
+      wctx.beginPath();wctx.moveTo(ox,oy);wctx.lineTo(nx,ny);
+      wctx.strokeStyle=`rgba(0,255,136,${Math.min(frame/60,.8)})`;
+      wctx.lineWidth=Math.min(s.speed*.02,2);wctx.stroke();
+    });
+    if(frame<120)requestAnimationFrame(anim);
+    else{ov.classList.remove('active');arriveSystem();}
+  }
+  anim();
+}
+function arriveSystem(){
+  STATE.currentSystem=ALT_SYSTEMS[Math.floor(Math.random()*ALT_SYSTEMS.length)];
+  document.getElementById('systemName').textContent=STATE.currentSystem;
+  const n=4+Math.floor(Math.random()*5);
+  genSystem({
+    name:STATE.currentSystem,
+    star:{name:'STAR',r:400+Math.random()*500,color:'#ffdd44'},
+    bodies:Array.from({length:n},(_,i)=>({
+      name:['PROXIMA','CYGNUS','VEGA','MIRA','ALEPH','DENEB','RIGEL','ATLAS'][Math.floor(Math.random()*8)]+'-'+(i+1),
+      orbitAU:.4+i*.6+Math.random()*.5,r:15+Math.random()*80,
+      orbitSpeed:5e-5/(i+1),
+      civ:['ANCIENT','TECHNOCRACY','AGRARIAN','INDUSTRIAL','NOMADIC','HIVE-MIND'][Math.floor(Math.random()*6)],
+      hasRings:Math.random()<.2,
+      moons:Math.random()<.4?[{name:'MOON-'+(i+1),orbitR:120+Math.random()*100,r:8+Math.random()*12,orbitSpeed:2e-4+Math.random()*3e-4}]:[],
+    }))
+  });
+  STATE.ship.wx=-4*AU;STATE.ship.wy=0;CAM.x=STATE.ship.wx;CAM.y=0;
+  notify('✓ ARRIVED: '+STATE.currentSystem);
+}
+
+// ── NOTIFICATIONS ─────────────────────────
+function notify(msg){
+  const el=document.createElement('div');el.className='notif';el.textContent=msg;
+  document.getElementById('notifications').appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+// ── OUTPOST PASSIVE INCOME ────────────────
+setInterval(()=>{
+  if(!STATE.outposts.length)return;
+  STATE.credits+=STATE.outposts.length*.8;
+  const rkeys=Object.keys(STATE.resources);
+  STATE.outposts.forEach((_,i)=>{
+    const r=STATE.resources[rkeys[i%rkeys.length]];
+    if(r&&r.amount<r.max)r.amount+=.25;
+  });
+},1000);
+
+// ── IDLE EARNINGS ─────────────────────────
+function checkIdle(){
+  const stored=localStorage.getItem('vh2_lastseen');
+  if(!stored){localStorage.setItem('vh2_lastseen',Date.now());return;}
+  const mins=(Date.now()-parseInt(stored))/60000;
+  if(mins<2||!STATE.outposts.length){localStorage.setItem('vh2_lastseen',Date.now());return;}
+  const rkeys=Object.keys(STATE.resources);
+  const earnings={};
+  STATE.outposts.forEach((_,i)=>{const k=rkeys[i%rkeys.length];earnings[k]=(earnings[k]||0)+Math.floor(mins*.6);});
+  const cr=Math.floor(mins*1.5*STATE.outposts.length);
+  const timeText=mins<60?`${Math.floor(mins)}m`:`${Math.floor(mins/60)}h ${Math.floor(mins%60)}m`;
+  document.getElementById('idleTimeText').textContent=`Away for ${timeText}`;
+  let html=`<div class="idle-row"><span style="color:var(--pcb-dim)">CREDITS</span><span style="color:var(--warn)">+${cr} CR</span></div>`;
+  for(const[k,v] of Object.entries(earnings))html+=`<div class="idle-row"><span style="color:var(--pcb-dim)">${k.toUpperCase()}</span><span style="color:var(--pcb)">+${v}</span></div>`;
+  document.getElementById('idleEarnings').innerHTML=html;
+  window._idleEarnings={credits:cr,resources:earnings};
+  document.getElementById('idlePopup').classList.add('active');
+}
+function collectIdle(){
+  const e=window._idleEarnings;
+  if(e){
+    STATE.credits+=e.credits;
+    for(const[k,v] of Object.entries(e.resources)){if(STATE.resources[k])STATE.resources[k].amount=Math.min(STATE.resources[k].max,STATE.resources[k].amount+v);}
+  }
+  localStorage.setItem('vh2_lastseen',Date.now());
+  document.getElementById('idlePopup').classList.remove('active');
+  notify('✓ OFFLINE EARNINGS COLLECTED');
+}
+
+// ── SAVE / LOAD ───────────────────────────
+function saveGame(){
+  try{
+    localStorage.setItem('vh2_save',JSON.stringify({
+      credits:STATE.credits,
+      resources:{iron:{amount:STATE.resources.iron.amount,max:STATE.resources.iron.max},
+                 crystal:{amount:STATE.resources.crystal.amount,max:STATE.resources.crystal.max},
+                 data:{amount:STATE.resources.data.amount,max:STATE.resources.data.max}},
+      shipSpeed:STATE.ship.speed,shipSpeedLevel:STATE.ship.speedLevel,shipCargoLevel:STATE.ship.cargoLevel,
+      harvestersOwned:STATE.harvesters.owned,
+      warpUnlocked:STATE.warpUnlocked,currentSystem:STATE.currentSystem,
+      outpostNames:STATE.outposts.map(o=>o.planetName),
+    }));
+  }catch(e){}
+}
+function loadGame(){
+  try{
+    const raw=localStorage.getItem('vh2_save');if(!raw)return;
+    const s=JSON.parse(raw);
+    STATE.credits=s.credits??STATE.credits;
+    ['iron','crystal','data'].forEach(k=>{
+      if(s.resources&&s.resources[k]){STATE.resources[k].amount=s.resources[k].amount||0;STATE.resources[k].max=s.resources[k].max||STATE.resources[k].max;}
+    });
+    STATE.ship.speed=s.shipSpeed??1;STATE.ship.speedLevel=s.shipSpeedLevel??1;STATE.ship.cargoLevel=s.shipCargoLevel??1;
+    STATE.harvesters.owned=s.harvestersOwned??1;
+    STATE.warpUnlocked=s.warpUnlocked??false;
+    STATE.currentSystem=s.currentSystem??'SOL';
+    document.getElementById('systemName').textContent=STATE.currentSystem;
+    document.getElementById('speedCostLabel').textContent=(STATE.ship.speedLevel*100)+' CR';
+    document.getElementById('cargoCostLabel').textContent=(STATE.ship.cargoLevel*75)+' CR';
+  }catch(e){}
+}
+setInterval(saveGame,20000);
+
+// ── INIT ──────────────────────────────────
+window.addEventListener('resize',resizeCanvas);
+resizeCanvas();
+CAM.zoom=CAM.targetZoom=canvas.height/(4*AU);
+
+loadGame();
+genSystem(SOL_SYSTEM);
+
+// Restore outpost markers
+try{
+  const raw=localStorage.getItem('vh2_save');
+  if(raw){
+    const s=JSON.parse(raw);
+    (s.outpostNames||[]).forEach(n=>{
+      const p=PLANETS.find(pl=>pl.name===n);
+      if(p){p.hasOutpost=true;STATE.outposts.push({planetName:n,planetRef:p});}
+    });
+  }
+}catch(e){}
+
+// Start near Earth
+STATE.ship.wx=1.0*AU;STATE.ship.wy=0;CAM.x=STATE.ship.wx;CAM.y=STATE.ship.wy;
+
+// Init harvester ships
+for(let i=0;i<STATE.harvesters.owned;i++){
+  HARV_SHIPS.push({wx:STATE.ship.wx+40+i*25,wy:STATE.ship.wy,angle:0,phase:'idle',targetPlanet:null,cargo:null,mineTimer:0});
+}
+
+checkIdle();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
